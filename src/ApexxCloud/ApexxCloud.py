@@ -13,6 +13,7 @@ import requests
     access_key (str): Your ApexxCloud access key.
     region (str): The region in which your bucket is located.
     bucket (str): The default bucket to use for operations.
+    For more information on the ApexxCloud API, see https://docs.apexxcloud.com/introduction
 '''
 
 class ApexxCloud:
