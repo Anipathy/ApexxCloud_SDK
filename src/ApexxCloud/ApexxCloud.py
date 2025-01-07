@@ -4,7 +4,7 @@ import requests
 import inspect
 import aiohttp
 
-#imported pycryptodome, requests --externally
+#imported pycryptodome, requests, aiohttp --externally
 
 '''
     ApexxCloud class for interacting with ApexxCloud API's.
