@@ -1,6 +1,8 @@
 from datetime import datetime
 from Crypto.Hash import HMAC, SHA256
 import requests
+import inspect
+import aiohttp
 
 #imported pycryptodome, requests --externally
 
@@ -48,12 +50,12 @@ class ApexxCloud:
             'X-Timestamp': timestamp,
         }
 
-    def __make_request(self, method, path, options):
+    def __make_request_sync(self, method, path, options):
         if options is None:
             options = {}
         headers = self.__generate_headers(method, path)
         url = self.__base_url + path
-        if 'headers'in options.keys():
+        if 'headers' in options.keys():
             headers.update(options['headers'])
         try:
             response = requests.request(
@@ -62,9 +64,36 @@ class ApexxCloud:
                 headers=headers,
                 files=options
             )
-            return response
+            return response.json()
         except requests.exceptions.RequestException as e:
             raise Exception("Error making request: {}".format(e))
+
+    async def __make_request_async(self, method, path, options):
+        if options is None:
+            options = {}
+        headers = self.__generate_headers(method, path)
+        url = self.__base_url + path
+        if 'headers' in options.keys():
+            headers.update(options['headers'])
+        
+        data = aiohttp.FormData()
+        for key, value in options.items():
+            if key == 'file':
+                data.add_field(key, value[1], filename=value[0], content_type=value[2])
+            else:
+                data.add_field(key, value)
+        
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.request(
+                    method=method.upper(),
+                    url=url,
+                    headers=headers,
+                    data=data
+                ) as response:
+                    return await response.json()
+            except aiohttp.ClientError as e:
+                raise Exception("Error making request: {}".format(e))
 
     def upload_file(self,file,options):
         if not isinstance(options, dict):
@@ -87,7 +116,12 @@ class ApexxCloud:
         }
         query_string = '&'.join([f"{key}={value}" for key, value in query_params.items()])
         path = f"/api/v1/files/upload?{query_string}"
-        return self.__make_request('PUT',path,data).json()
+        if inspect.iscoroutinefunction(inspect.currentframe().f_back.f_globals.get(inspect.currentframe().f_back.f_code.co_name)):
+            print("async upload")
+            return self.__make_request_async('PUT', path, data)
+        else:
+            print("sync upload")
+            return self.__make_request_sync('PUT', path, data)
     
     def delete_file(self,bucket,key):
         if not key:
@@ -99,7 +133,10 @@ class ApexxCloud:
         }
         query_string = '&'.join([f"{key}={value}" for key, value in query_params.items()])
         path = f'/api/v1/files/delete?{query_string}'
-        return self.__make_request('DELETE',path,{}).json()
+        if inspect.iscoroutinefunction(inspect.currentframe().f_back.f_globals.get(inspect.currentframe().f_back.f_code.co_name)):
+            return self.__make_request_async('DELETE',path,{})
+        else:
+            return self.__make_request_sync('DELETE',path,{})
     
     def start_multipart_upload(self,bucket,key,options):
         if not key:
@@ -118,7 +155,10 @@ class ApexxCloud:
         }
         query_string = '&'.join([f"{key}={value}" for key, value in query_params.items()])
         path = f'/api/v1/files/multipart/start?{query_string}'
-        return self.__make_request('POST',path,options).json()
+        if inspect.iscoroutinefunction(inspect.currentframe().f_back.f_globals.get(inspect.currentframe().f_back.f_code.co_name)):
+            return self.__make_request_async('POST',path,options)
+        else:
+            return self.__make_request_sync('POST',path,options)
     
     def upload_part(self,upload_id,part_number,file,options):
         if not upload_id:
@@ -145,7 +185,10 @@ class ApexxCloud:
         }
         query_string = '&'.join([f"{key}={value}" for key, value in query_params.items()])
         path = f'/api/v1/files/multipart/{upload_id}?{query_string}'
-        return self.__make_request('POST',path,data)
+        if inspect.iscoroutinefunction(inspect.currentframe().f_back.f_globals.get(inspect.currentframe().f_back.f_code.co_name)):
+            return self.__make_request_async('POST',path,data)
+        else:
+            return self.__make_request_sync('POST',path,data)
     
     def complete_multipart_upload(self,upload_id, parts, options):
         if not upload_id:
@@ -168,7 +211,10 @@ class ApexxCloud:
         data = {
             'parts': parts
         }
-        return self.__make_request('POST',path,data).json()
+        if inspect.iscoroutinefunction(inspect.currentframe().f_back.f_globals.get(inspect.currentframe().f_back.f_code.co_name)):
+            return self.__make_request_async('POST',path,data)
+        else:
+            return self.__make_request_sync('POST',path,data)
 
     def cancel_multipart_upload(self,upload_id,options):
         if not upload_id:
@@ -184,7 +230,10 @@ class ApexxCloud:
         }
         query_string = '&'.join([f"{key}={value}" for key, value in query_params.items()])
         path = f'/api/v1/files/multipart/{upload_id}?{query_string}'
-        return self.__make_request('DELETE',path,{}).json()
+        if inspect.iscoroutinefunction(inspect.currentframe().f_back.f_globals.get(inspect.currentframe().f_back.f_code.co_name)):
+            return self.__make_request_async('DELETE',path,{})
+        else:
+            return self.__make_request_sync('DELETE',path,{})
     
     def list_bucket_contents(self,bucket=None,options={}):
         if options and not isinstance(options, dict):
@@ -198,7 +247,11 @@ class ApexxCloud:
         }
         query_string = '&'.join([f"{key}={value}" for key, value in query_params.items()])
         path = f'/api/v1/files/contents?{query_string}'
-        return self.__make_request('GET',path,{}).json()
+        if inspect.iscoroutinefunction(inspect.currentframe().f_back.f_globals.get(inspect.currentframe().f_back.f_code.co_name)):
+            return self.__make_request_async('GET', path, {})
+        else:
+            return self.__make_request_sync('GET', path, {})
+        
     
     def generate_signed_url(self,type,options):
         valid_operations = [
@@ -280,7 +333,8 @@ class ApexxCloud:
             path = f'/api/v1/files/signed-url'
             query_string = '&'.join([f"{key}={value}" for key, value in query_params.items()])
             path = f'{path}?{query_string}'
-            return self.__make_request(method,path,{}).json()
+            method = 'GET'
+            return self.__make_request_sync(method,path, {})
         else:
             raise Exception("Invalid operation type")
         
