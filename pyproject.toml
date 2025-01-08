@@ -1,6 +1,6 @@
 [project]
 name = "ApexxCloud"
-version = "1.0"
+version = "1.1.0"
 authors = [
   { name="Anirudh", email="anipathy17@gmail.com" },
 ]
