@@ -13,9 +13,9 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "requests",
-    "pycryptodome",
-    "aiohttp"
+    "requests>2.20.0",
+    "pycryptodome>3.9.0",
+    "aiohttp>3.8.0"
 ]
 
 [project.urls]
