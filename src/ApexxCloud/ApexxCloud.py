@@ -180,7 +180,7 @@ class ApexxCloud:
             'bucket_name': options.get('bucket',self.default_bucket),
             'region': options.get('region',self.region),
             'key': options.get('key'),
-            'partNumber': options.get('part_number'),
+            'partNumber': part_number,
             'totalParts': options['total_parts']
         }
         query_string = '&'.join([f"{key}={value}" for key, value in query_params.items()])
@@ -191,11 +191,12 @@ class ApexxCloud:
             return self.__make_request_sync('POST',path,data)
     
     def complete_multipart_upload(self,upload_id, parts, options):
+        print(parts)
         if not upload_id:
             raise Exception(self.messages['value_error'].format('upload_id','complete_multipart_upload'))
         if not isinstance(parts, list):
             raise TypeError(self.messages['type_error'].format('parts','list'))
-        if not all(isinstance(part, dict) and 'ETag' in part and 'PartNumber' in part for part in parts):
+        if not all(isinstance(part, dict) and 'ETag' in part and 'partNumber' in part for part in parts):
             raise Exception("Each part must be a dictionary containing 'ETag' and 'PartNumber' keys.")
         if not isinstance(options, dict):
             raise TypeError(self.messages['type_error'].format('options','dictionary'))
