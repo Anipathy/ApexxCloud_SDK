@@ -3,6 +3,7 @@ from Crypto.Hash import HMAC, SHA256
 import requests
 import inspect
 import aiohttp
+import json
 
 #imported pycryptodome, requests, aiohttp --externally
 
@@ -71,18 +72,29 @@ class ApexxCloud:
     async def __make_request_async(self, method, path, options):
         if options is None:
             options = {}
+
         headers = self.__generate_headers(method, path)
         url = self.__base_url + path
-        if 'headers' in options.keys():
+
+        if 'headers' in options:
             headers.update(options['headers'])
-        
-        data = aiohttp.FormData()
-        for key, value in options.items():
-            if key == 'file':
-                data.add_field(key, value[1], filename=value[0], content_type=value[2])
-            else:
-                data.add_field(key, value)
-        
+
+        if 'file' in options:
+            data = aiohttp.FormData()
+            for key, value in options.items():
+                if key == 'file':
+                    data.add_field(
+                        key,
+                        value[1],
+                        filename=value[0],
+                        content_type=value[2]
+                    )
+                else:
+                    data.add_field(key, value)
+        else:
+            data = json.dumps({key: value for key, value in options.items() if key != 'headers'})
+            headers['Content-Type'] = 'application/json'
+
         async with aiohttp.ClientSession() as session:
             try:
                 async with session.request(
@@ -91,9 +103,10 @@ class ApexxCloud:
                     headers=headers,
                     data=data
                 ) as response:
+                    response.raise_for_status()
                     return await response.json()
             except aiohttp.ClientError as e:
-                raise Exception("Error making request: {}".format(e))
+                raise Exception(f"Error making request: {e}")
 
     def upload_file(self,file,options):
         if not isinstance(options, dict):
@@ -117,10 +130,8 @@ class ApexxCloud:
         query_string = '&'.join([f"{key}={value}" for key, value in query_params.items()])
         path = f"/api/v1/files/upload?{query_string}"
         if inspect.iscoroutinefunction(inspect.currentframe().f_back.f_globals.get(inspect.currentframe().f_back.f_code.co_name)):
-            print("async upload")
             return self.__make_request_async('PUT', path, data)
         else:
-            print("sync upload")
             return self.__make_request_sync('PUT', path, data)
     
     def delete_file(self,bucket,key):
@@ -191,12 +202,11 @@ class ApexxCloud:
             return self.__make_request_sync('POST',path,data)
     
     def complete_multipart_upload(self,upload_id, parts, options):
-        print(parts)
         if not upload_id:
             raise Exception(self.messages['value_error'].format('upload_id','complete_multipart_upload'))
         if not isinstance(parts, list):
             raise TypeError(self.messages['type_error'].format('parts','list'))
-        if not all(isinstance(part, dict) and 'ETag' in part and 'partNumber' in part for part in parts):
+        if not all(isinstance(part, dict) and 'ETag' in part and 'PartNumber' in part for part in parts):
             raise Exception("Each part must be a dictionary containing 'ETag' and 'PartNumber' keys.")
         if not isinstance(options, dict):
             raise TypeError(self.messages['type_error'].format('options','dictionary'))
